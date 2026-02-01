@@ -45,14 +45,23 @@ class AroonMomentumEngine_Shorts(IStrategy):
     can_short: bool = True
 
     # ROI handled by custom exit AND time-based decay
-    # 0 min: 20%, 60 min: 10%, 24h: 1% (Kill stale trades)
-    minimal_roi = {"0": 0.20, "60": 0.10, "1440": 0.01}
+    # Relaxed to allow ATR-based exits to drive profit-taking
+    minimal_roi = {
+        "0": 1.00,  # 100% max target (Shorts/Strong Longs)
+        "120": 0.50,  # 50% after 2h (partial exit in moderate trends)
+        "240": 0.20,  # 20% after 4h (protect against fatigue)
+        "720": 0.05,  # After 12h, lower bar to 5% to clear capital
+        "1440": 0.01,  # After 24h, exit at break-even (Zombie killer)
+    }
 
     # Stoploss (backup, primary is ATR-based dynamic stop)
     stoploss = -0.25  # -25% hard stop
 
-    # Trailing stop
-    trailing_stop = False  # We use fixed TP/SL based on ATR
+    # Trailing stop (protect profits during reversals)
+    trailing_stop = True
+    trailing_stop_positive = 0.02  # Trail 2% behind peak
+    trailing_stop_positive_offset = 0.05  # Start trailing after 5% profit
+    trailing_only_offset_is_reached = True
 
     # Run "populate_indicators" only for new candle
     process_only_new_candles = True
@@ -364,22 +373,6 @@ class AroonMomentumEngine_Shorts(IStrategy):
         # Use the leverage_multiplier parameter
         return proposed_stake
 
-    def leverage(
-        self,
-        pair: str,
-        current_time: datetime,
-        current_rate: float,
-        proposed_leverage: float,
-        max_leverage: float,
-        entry_tag: Optional[str],
-        side: str,
-        **kwargs,
-    ) -> float:
-        """
-        Set leverage based on user-defined parameter.
-        """
-        return self.leverage_multiplier.value
-
     def custom_stoploss(
         self,
         pair: str,
@@ -440,15 +433,18 @@ class AroonMomentumEngine_Shorts(IStrategy):
         **kwargs,
     ) -> Optional[Union[str, bool]]:
         """
-        Custom exit logic for take profit based on Risk/Reward ratio.
-
-        Take Profit = Entry + (Stop Distance * Risk/Reward Ratio)
+        Hybrid Exit Engine:
+        - Shorts: Trend Riding (2.0 R:R base, 3.0 R:R if Aroon Down > 80)
+        - Longs: Relief Sniping (1.5 R:R base, 2.5 R:R if Aroon Up > 80)
         """
 
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
 
         if len(dataframe) < 1:
             return None
+
+        # Get current market state
+        last_candle = dataframe.iloc[-1]
 
         # Get the ATR value at trade entry
         trade_date = trade.open_date_utc.replace(tzinfo=timezone.utc)
@@ -462,19 +458,76 @@ class AroonMomentumEngine_Shorts(IStrategy):
         if pd.isna(atr_value) or atr_value <= 0:
             return None
 
-        # Calculate stop and take profit distances
-        stop_distance = atr_value * self.atr_multiplier.value
-        tp_distance = stop_distance * self.risk_reward.value
+        # Define Base Volatility Target (1.8x ATR)
+        atr_move = atr_value * self.atr_multiplier.value
 
+        # --------------------------------------------------------
+        # SCENARIO A: SHORT TRADES (Trend Riding)
+        # --------------------------------------------------------
         if trade.is_short:
-            # For shorts: TP is BELOW entry
-            tp_price = trade.open_rate - tp_distance
-            if current_rate <= tp_price:
-                return "take_profit_2R"
+            # Base Target: 2.0 R:R (Standard for Shorts)
+            risk_reward_ratio = 2.0
+
+            # DYNAMIC EXTENSION: If Bear Trend is "Maxed Out" (Aroon Down > 80)
+            if last_candle.get("aroondown", 0) > 80:
+                risk_reward_ratio = 3.0
+
+            # Calculate Target Price distance percentage
+            target_profit_pct = (atr_move * risk_reward_ratio) / current_rate
+
+            # Check if hit
+            if current_profit >= target_profit_pct:
+                return f"short_profit_rr_{risk_reward_ratio}"
+
+        # --------------------------------------------------------
+        # SCENARIO B: LONG TRADES (Relief Rally Sniping)
+        # --------------------------------------------------------
         else:
-            # For longs: TP is ABOVE entry
-            tp_price = trade.open_rate + tp_distance
-            if current_rate >= tp_price:
-                return "take_profit_2R"
+            # Base Target: Tighter 1.5 R:R (Quick in/out for Bear Market Rallies)
+            risk_reward_ratio = 1.5
+
+            # EXCEPTION: If we actually catch a Bull Run (Aroon Up > 80)
+            if last_candle.get("aroonup", 0) > 80:
+                risk_reward_ratio = 2.5
+
+            target_profit_pct = (atr_move * risk_reward_ratio) / current_rate
+
+            # Hard Cap for Weak Longs:
+            # If trend is weak (Aroon Up < 50) AND we have > 3% profit, take it now.
+            if last_candle.get("aroonup", 0) < 50 and current_profit > 0.03:
+                return "long_sniper_weak_trend"
+
+            # Check standard target
+            if current_profit >= target_profit_pct:
+                return f"long_profit_rr_{risk_reward_ratio}"
 
         return None
+
+    def custom_roi(
+        self,
+        pair: str,
+        trade: Trade,
+        current_time: datetime,
+        current_rate: float,
+        current_profit: float,
+        **kwargs,
+    ) -> float:
+        """
+        Strategic "Safety Valve" (Custom ROI)
+        Time-decay ROI to force exits on profitable but slow trades.
+        """
+        # Calculate duration in minutes
+        trade_dur = (current_time - trade.open_date_utc).total_seconds() / 60
+
+        # 1. FAST START RULE:
+        # If trade is < 60 mins old, keep ROI high (let it breathe)
+        if trade_dur < 60:
+            return 1.00
+
+        # 2. PROFIT PROTECTION RULE:
+        # If we are up 10% (0.10) but custom_exit hasn't triggered yet...
+        # We aggressively lower the ROI requirement to lock it in if it drops.
+        if current_profit > 0.10:
+            return 0.10  # Ensure we exit if it drops back to 10%
+
+        return -1  # Use minimal_roi table
