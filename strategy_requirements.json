@@ -1,0 +1,134 @@
+{
+  "ADXOBVMomentumStrategy": [
+    "1h"
+  ],
+  "ADXSMAChannelStrategy": [
+    "1d",
+    "4h"
+  ],
+  "ALMAMACDMomentumCrossStrategy": [
+    "1h"
+  ],
+  "ALMA_MACDStrategy": [
+    "1h"
+  ],
+  "AroonMACDStrategy": [
+    "1h"
+  ],
+  "AroonMomentumStrategy": [
+    "1h"
+  ],
+  "AuditTestStrategy": [
+    "1h"
+  ],
+  "AwesomeMACDRSIStrategy": [
+    "1h"
+  ],
+  "ChrisVerma_GapShort_Strategy": [
+    "1d",
+    "5m"
+  ],
+  "DAVEY_01_EURO_NIGHT_ADAPTED": [
+    "2h"
+  ],
+  "DAVEY_02_EURO_DAY_ADAPTED": [
+    "1h"
+  ],
+  "DAVEY_03_WC_2005_DAILY": [
+    "1d"
+  ],
+  "Donchian_ADX_CHOPStrategy": [
+    "1h"
+  ],
+  "DualCCIPullbackStrategy": [
+    "1h"
+  ],
+  "EdriExtremePointsStrategy": [
+    "1h"
+  ],
+  "EMA8_13_21_MACDStrategy": [
+    "1h"
+  ],
+  "FibonacciEMATrendStrategy": [
+    "1h",
+    "4h"
+  ],
+  "ForestKnight_VPE_Strategy": [
+    "1h",
+    "1d"
+  ],
+  "IchimokuCloudTrendStrategy": [
+    "4h"
+  ],
+  "LLM_Regime_Strategy": [
+    "1h"
+  ],
+  "MarcoAcetoni_LiquidityTrap_Strategy": [
+    "1h",
+    "5m",
+    "4h"
+  ],
+  "MeanReversionBBStrategy": [
+    "1h",
+    "4h"
+  ],
+  "MeanReversionSqueezeStrategy": [
+    "1h"
+  ],
+  "MixtureOfExperts": [
+    "1h"
+  ],
+  "MomentumBreakoutStrategy": [
+    "15m"
+  ],
+  "ParabolicSARMomentumStrategy": [
+    "30m"
+  ],
+  "path_setup": [
+    "5m"
+  ],
+  "QuantTactics_Supertrend_Strategy": [
+    "1h"
+  ],
+  "RSIDCAMomentumScalerStrategy": [
+    "30m"
+  ],
+  "RSISMAMomentumStrategy": [
+    "30m"
+  ],
+  "StochasticMomentumDipBuyerStrategy": [
+    "15m"
+  ],
+  "Stockbee_EP_Strategy": [
+    "1d",
+    "5m"
+  ],
+  "StrategyOrchestratorStrategy": [
+    "1h"
+  ],
+  "SupertrendEMAMomentumStrategy": [
+    "1h",
+    "4h"
+  ],
+  "TEMA_ADX_CMOStrategy": [
+    "1h"
+  ],
+  "TripleMAStrategy": [
+    "4h"
+  ],
+  "UnifiedTrendStrategy": [
+    "1h"
+  ],
+  "VWAPDMIStrategy": [
+    "1h"
+  ],
+  "WhaleMomentumStrategy": [
+    "1h"
+  ],
+  "WilliamsRSI_MACDStrategy": [
+    "1h"
+  ],
+  "WMA_MACDStrategy": [
+    "1h"
+  ]
+}

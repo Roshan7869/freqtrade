@@ -1,0 +1,2 @@
+aiokafka>=0.8.0
+pydantic>=2.0.0

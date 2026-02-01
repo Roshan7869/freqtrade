@@ -1,0 +1,13 @@
+services:
+  freqtrade-backtest:
+    image: freqtradeorg/freqtrade:stable
+    container_name: freqtrade-backtest
+    volumes:
+      - ../user_data:/freqtrade/user_data
+      - ../analysis_layer/src:/freqtrade/analysis_layer/src
+      - ../decision_layer/src:/freqtrade/decision_layer/src
+      - ../signal_layer/src:/freqtrade/signal_layer/src
+      - ../shared:/freqtrade/shared
+    command: >
+      backtesting --config /freqtrade/user_data/config.json --strategy StrategyOrchestratorStrategy --timerange 20250701- --export trades --export-filename /freqtrade/user_data/backtest_results/backtest_result.json --logfile /freqtrade/user_data/backtest_debug.log
+    working_dir: /freqtrade

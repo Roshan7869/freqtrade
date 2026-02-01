@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  freqtrade-download:
+    image: freqtradeorg/freqtrade:stable
+    container_name: freqtrade-download
+    volumes:
+      - ../user_data:/freqtrade/user_data
+    command: >
+      download-data --config /freqtrade/user_data/config.json --pairs SOL/USDT:USDT --timerange 20251223-20260123 --timeframes 1h --exchange binance --trading-mode futures
+    working_dir: /freqtrade

@@ -1,0 +1,166 @@
+version: '3.8'
+
+services:
+  # ============== INFRASTRUCTURE ==============
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - trading-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - trading-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - trading-net
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: trading
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    networks:
+      - trading-net
+
+  # ============== TRADING SERVICES ==============
+  data-layer:
+    build:
+      context: ..
+      dockerfile: data_layer/Dockerfile
+    container_name: data-layer
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      SYMBOLS: solusdt,duskusdt
+    volumes:
+      - ../user_data:/freqtrade/user_data
+    networks:
+      - trading-net
+
+  signal-layer:
+    build:
+      context: ..
+      dockerfile: signal_layer/Dockerfile
+    container_name: signal-layer
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - data-layer
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+    volumes:
+      - ../user_data:/freqtrade/user_data
+    networks:
+      - trading-net
+
+  analysis-layer:
+    build:
+      context: ..
+      dockerfile: analysis_layer/Dockerfile
+    container_name: analysis-layer
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+    volumes:
+      - ../user_data:/freqtrade/user_data
+    networks:
+      - trading-net
+
+  decision-layer:
+    build:
+      context: ..
+      dockerfile: decision_layer/Dockerfile
+    container_name: decision-layer
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - signal-layer
+      - analysis-layer
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+    volumes:
+      - ../user_data:/freqtrade/user_data
+    networks:
+      - trading-net
+
+  execution-layer:
+    build:
+      context: ..
+      dockerfile: execution_layer/Dockerfile
+    container_name: execution-layer
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - decision-layer
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      BINANCE_API_KEY: ${EXCHANGE_KEY}
+      BINANCE_API_SECRET: ${EXCHANGE_SECRET}
+    volumes:
+      - ../user_data:/freqtrade/user_data
+    networks:
+      - trading-net
+
+  risk-layer:
+    build:
+      context: ..
+      dockerfile: risk_layer/Dockerfile
+    container_name: risk-layer
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+    networks:
+      - trading-net
+
+  monitoring:
+    build:
+      context: ..
+      dockerfile: monitoring/Dockerfile
+    container_name: monitoring
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+    networks:
+      - trading-net
+
+networks:
+  trading-net:
+    name: trading-net
