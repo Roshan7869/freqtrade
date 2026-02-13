@@ -118,3 +118,27 @@ target/
 !config_examples/config_freqai.example.json
 
 docker-compose-*.yml
+
+# ===================================
+# SECURITY: Never commit these files
+# ===================================
+# Environment variables with credentials
+.env
+.env.local
+.env.*.local
+
+# Live trading configs (may contain API keys)
+user_data/config_live_real.json
+user_data/config_*live*.json
+user_data/config_private.json
+
+# Sensitive logs and databases
+user_data/logs/*
+user_data/tradesv3.sqlite*
+*.log
+
+# Backup files that may contain credentials
+*.bak
+*.backup
+*_backup.json
+
